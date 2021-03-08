@@ -4,14 +4,54 @@
 
 import 'package:flutter/material.dart';
 import 'package:english_words/english_words.dart';
+import 'dart:io';
+import 'dart:typed_data';
 
-void main() => runApp(MyApp());
+void main() async {
+  final socket = await Socket.connect('192.168.3.175', 1155);
+  print("Connected to server ${socket.remoteAddress.address}:${socket.remotePort}");
 
-class MyApp extends StatelessWidget {
+  /* listen to responses from server */
+  socket.listen(
+
+    // Handler
+    (Uint8List data) {
+      print( "In Data Handler Now" );
+      print(new String.fromCharCodes(data));
+    },
+
+    // handle errors
+    onError: (error, StackTrace trace) {
+      print(error);
+    },
+
+    // handle server ending connection
+    onDone: () {
+      print( "Exiting from Server, goodbye!" );
+      socket.destroy();
+    },
+  );
+
+  await sendMessage(socket, 'LIST KL/0.3\n');
+
+  runApp(Klapp());
+
+  /* This is how to exit server */
+  //await sendMessage(socket, 'Q\n');
+}
+
+/* handle sending requests */
+Future<void> sendMessage( Socket socket, String message ) async {
+  print( "client sending request: $message" );
+  socket.write( message );
+  await Future.delayed( Duration(seconds: 2));
+}
+
+class Klapp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Startup Name Generator',
+      title: 'Kiss-Light App (Klapp)',
       theme: ThemeData(
         primaryColor: Colors.white,
       ),
@@ -35,7 +75,7 @@ class _RandomWordsState extends State<RandomWords> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Startup Name Generator'),
+        title: Text('Kiss-Light App (Klapp)'),
         actions: [
           IconButton(icon: Icon(Icons.list), onPressed: _pushSaved),
         ],

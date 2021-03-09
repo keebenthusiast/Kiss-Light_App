@@ -4,14 +4,19 @@
 
 import 'package:flutter/material.dart';
 import 'package:english_words/english_words.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
+//Socket sock;
+
+/*
 void main() async {
   final socket = await Socket.connect('192.168.3.175', 1155);
+  sock = socket;
   print("Connected to server ${socket.remoteAddress.address}:${socket.remotePort}");
 
-  /* listen to responses from server */
+  //listen to responses from server
   socket.listen(
 
     // Handler
@@ -36,117 +41,221 @@ void main() async {
 
   runApp(Klapp());
 
-  /* This is how to exit server */
+  //This is how to exit server
   //await sendMessage(socket, 'Q\n');
-}
+}*/
 
 /* handle sending requests */
-Future<void> sendMessage( Socket socket, String message ) async {
-  print( "client sending request: $message" );
-  socket.write( message );
-  await Future.delayed( Duration(seconds: 2));
+Future<void> sendMessage(Socket socket, String message) async {
+  print("client sending request: $message");
+  socket.write(message);
+  await Future.delayed(Duration(seconds: 2));
 }
+
+/* Main function */
+void main() => runApp(Klapp());
 
 class Klapp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Kiss-Light App (Klapp)',
+      title: 'Kisslight server info',
       theme: ThemeData(
         primaryColor: Colors.white,
       ),
-      home: RandomWords(),
+      //home: RandomWords(),
+      home: SetupPage(storage: Storage()),
     );
   }
 }
 
-/* fleef */
-class RandomWords extends StatefulWidget {
-  @override
-  _RandomWordsState createState() => _RandomWordsState();
+/* class for writing to file */
+class Storage {
+  /* Provide a way to get current information
+  * with the specific file.
+  */
+  Future<String> get _localPath async {
+    final directory = await getApplicationDocumentsDirectory();
+    print('FLEEEEEEEF ' + directory.path);
+
+    return directory.path;
+  }
+
+  Future<File> get _localFile async {
+    final path = await _localPath;
+
+    return File('$path/kisslight.txt');
+  }
+
+  /* read from file */
+  Future<String> readFile() async {
+    try {
+      final file = await _localFile;
+
+      String contents = await file.readAsString();
+
+      return contents;
+    } catch (e) {
+      // return a period
+      return '.';
+    }
+  }
+
+  /* Write to file */
+  Future<File> writeFile(String data) async {
+    final file = await _localFile;
+
+    return file.writeAsString(data);
+  }
 }
 
-class _RandomWordsState extends State<RandomWords> {
-  final _suggestions = <WordPair>[];
-  final _saved = <WordPair>{};
-  final _biggerFont = TextStyle(fontSize: 18.0);
+/* Setup State page */
+class SetupPage extends StatefulWidget {
+  final Storage storage;
+
+  SetupPage({Key key, @required this.storage}) : super(key: key);
+
+  @override
+  _SetupPageState createState() => _SetupPageState();
+}
+
+/* the state for the setup page */
+class _SetupPageState extends State<SetupPage> {
+  var ip = null;
+  var port = 1155;
+  List<String> ipAndPort = [null, null];
+
+  /* Initialize by retreiving previously saved values (if applicable) */
+  @override
+  void initState() {
+    super.initState();
+    widget.storage.readFile().then((String contents) {
+      setState(() {
+        if (contents != '.') {
+          print("BINGO " + contents);
+          ipAndPort = contents.split(':');
+          ip = ipAndPort[0];
+          port = int.parse(ipAndPort[1]);
+        } else {
+          print("PERIOD FOUND " + contents);
+        }
+      });
+    });
+  }
+
+/* Provide way to update file if needed */
+  Future<File> _updateValues( String i, String p ) {
+    // Write the variable as a string to the file.
+    return widget.storage.writeFile(i + ':' + p);
+  }
+
+  Future<void> _showSaveDialog( String i, String p ) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Save Kiss-Light IP'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: <Widget>[
+                Text('Would you like to save these settings?'),
+                Text(i + ':' + p),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Yes'),
+              onPressed: () {
+                // write to file
+                _updateValues( i, p );
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('No'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Kiss-Light App (Klapp)'),
-        actions: [
-          IconButton(icon: Icon(Icons.list), onPressed: _pushSaved),
-        ],
-      ),
-      body: _buildSuggestions(),
+    final logo = Padding(
+      padding: EdgeInsets.all(20),
+      child: Hero(
+          tag: 'kiss-light',
+          child: CircleAvatar(
+            radius: 56.0,
+            child: Image.asset('assets/kl-logo.png'),
+          )),
     );
-  }
 
-  Widget _buildSuggestions() {
-    return ListView.builder(
-        padding: EdgeInsets.all(16.0),
-        itemBuilder: /*1*/ (context, i) {
-          if (i.isOdd) return Divider(); /*2*/
+    TextEditingController ipCtrl = new TextEditingController();
+    final inputIP = Padding(
+      padding: EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: ipCtrl,
+        keyboardType: TextInputType.text,
+        decoration: InputDecoration(
+            hintText: (ipAndPort[0] == null) ? 'IP address' : ipAndPort[0],
+            contentPadding: EdgeInsets.symmetric(horizontal: 25, vertical: 20),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(50.0),
+            )),
+      ),
+    );
 
-          final index = i ~/ 2; /*3*/
-          if (index >= _suggestions.length) {
-            _suggestions.addAll(generateWordPairs().take(10)); /*4*/
-          }
-          return _buildRow(_suggestions[index]);
-        });
-  }
+    TextEditingController portCtrl = new TextEditingController();
+    final inputPort = Padding(
+      padding: EdgeInsets.only(bottom: 20),
+      child: TextField(
+        controller: portCtrl,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+            hintText: (ipAndPort[1] == null) ? 'kiss-light port' : ipAndPort[1],
+            contentPadding: EdgeInsets.symmetric(horizontal: 25, vertical: 20),
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(50.0))),
+      ),
+    );
 
-  Widget _buildRow(WordPair pair) {
-    final alreadySaved = _saved.contains(pair);
-    return ListTile(
-        title: Text(
-          pair.asPascalCase,
-          style: _biggerFont,
-        ),
-        trailing: Icon(
-          alreadySaved ? Icons.favorite : Icons.favorite_border,
-          color: alreadySaved ? Colors.black : null,
-        ),
-        onTap: () {
-          setState(() {
-            if (alreadySaved) {
-              _saved.remove(pair);
-            } else {
-              _saved.add(pair);
+    final buttonConnect = Padding(
+      padding: EdgeInsets.only(bottom: 5),
+      child: ButtonTheme(
+        height: 56,
+        child: RaisedButton(
+          child: Text('Connect',
+              style: TextStyle(color: Colors.white, fontSize: 20)),
+          color: Colors.black87,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+          onPressed: () {
+            if (ip == null || (ipCtrl.text != '' && portCtrl.text != '')) {
+              print("prompt if want to save");
+              _showSaveDialog(ipCtrl.text, portCtrl.text);
             }
-          });
-        });
-  }
-
-  void _pushSaved() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) {
-          final tiles = _saved.map(
-            (WordPair pair) {
-              return ListTile(
-                title: Text(
-                  pair.asPascalCase,
-                  style: _biggerFont,
-                ),
-              );
-            },
-          );
-          final divided = ListTile.divideTiles(
-            context: context,
-            tiles: tiles,
-          ).toList();
-
-          return Scaffold(
-            appBar: AppBar(
-              title: Text('Saved Suggestions'),
-            ),
-            body: ListView(children: divided),
-          );
-        },
+            /* now to connect and move to the new screen */
+          },
+        ),
       ),
     );
+
+    return SafeArea(
+        child: Scaffold(
+      body: Center(
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          children: <Widget>[logo, inputIP, inputPort, buttonConnect],
+        ),
+      ),
+    ));
   }
 }

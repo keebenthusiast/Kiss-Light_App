@@ -3,44 +3,84 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
-//Socket sock;
-/*
-void main() async {
-  final socket = await Socket.connect('192.168.3.175', 1155);
-  sock = socket;
-  print("Connected to server ${socket.remoteAddress.address}:${socket.remotePort}");
+final _devs = <String>[];
+final _devTypes = <String>[];
+
+/* Main function */
+void main() => runApp(Klapp());
+
+Future<void> _sendRequest(String ip, int port, String message) async {
+  var socket = await Socket.connect(ip, port);
+  print("Connected to server ${socket.remoteAddress.address}" +
+      ":${socket.remotePort}");
+
   //listen to responses from server
   socket.listen(
     // Handler
     (Uint8List data) {
-      print( "In Data Handler Now" );
-      print(new String.fromCharCodes(data));
+      String resp = String.fromCharCodes(data);
+      List<String> msg = resp.split(' ');
+      print('Full message: ' + String.fromCharCodes(data));
+      print('Response: ' + msg[1]);
+      int response = int.parse(msg[1]);
+
+      switch (response) {
+        case 200:
+        case 201:
+        case 202:
+        case 203:
+          print('retreived a ' + response.toString());
+          break;
+
+        case 204:
+          print('retreived a ' + response.toString());
+          // this is a stickup, reset _devs;
+          _devs.clear();
+          _devTypes.clear();
+
+          List<String> ls = String.fromCharCodes(data).split('\n');
+
+          for (int i = 1; i < ls.length - 2; i++) {
+            List<String> tmp = ls[i].split(' ');
+            print('dev name: ' + tmp[0]);
+            print('dev type: ' + tmp[4]);
+            _devs.add(tmp[0]);
+            _devTypes.add(tmp[4]);
+          }
+          break;
+
+        case 205:
+        case 206:
+        case 207:
+        case 208:
+        case 209:
+        case 210:
+          print('retreived a ' + response.toString());
+          break;
+
+        default:
+          print('Some error occurred, server returned ' + response.toString());
+          break;
+      }
     },
+
     // handle errors
     onError: (error, StackTrace trace) {
       print(error);
     },
+
     // handle server ending connection
     onDone: () {
-      print( "Exiting from Server, goodbye!" );
+      print("Exiting from Server, goodbye!");
       socket.destroy();
     },
   );
-  await sendMessage(socket, 'LIST KL/0.3\n');
-  runApp(Klapp());
-  //This is how to exit server
-  //await sendMessage(socket, 'Q\n');
-}*/
 
-/* handle sending requests */
-Future<void> sendMessage(Socket socket, String message) async {
   print("client sending request: $message");
   socket.write(message);
-  await Future.delayed(Duration(seconds: 2));
+  await Future.delayed(Duration(milliseconds: 50));
+  socket.write('Q\n');
 }
-
-/* Main function */
-void main() => runApp(Klapp());
 
 class Klapp extends StatelessWidget {
   @override
@@ -108,7 +148,7 @@ class SetupPage extends StatefulWidget {
 
 /* the state for the setup page */
 class _SetupPageState extends State<SetupPage> {
-  var ip = null;
+  var ip = '';
   var port = 1155;
   List<String> ipAndPort = [null, null];
 
@@ -131,12 +171,18 @@ class _SetupPageState extends State<SetupPage> {
   }
 
 /* Provide way to update file if needed */
-  Future<File> _updateValues( String i, String p ) {
+  Future<File> _updateValues(String i, String p) {
     // Write the variable as a string to the file.
     return widget.storage.writeFile(i + ':' + p);
   }
 
-  Future<void> _showSaveDialog( String i, String p ) async {
+  /* get list of devices */
+  Future<void> getDevices() async {
+    await _sendRequest(ip, port, 'LIST KL/0.3\n');
+    await Future.delayed(Duration(milliseconds: 100));
+  }
+
+  Future<void> _showSaveDialog(String i, String p) async {
     return showDialog<void>(
       context: context,
       barrierDismissible: false, // user must tap button!
@@ -156,7 +202,7 @@ class _SetupPageState extends State<SetupPage> {
               child: Text('Yes'),
               onPressed: () {
                 // write to file
-                _updateValues( i, p );
+                _updateValues(i, p);
                 Navigator.of(context).pop();
               },
             ),
@@ -223,11 +269,12 @@ class _SetupPageState extends State<SetupPage> {
           color: Colors.black87,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-          onPressed: () {
-            if (ip == null || (ipCtrl.text != '' && portCtrl.text != '')) {
+          onPressed: () async {
+            /* now to connect and move to the new screen */
+            if (ip == '' || (ipCtrl.text != '' && portCtrl.text != '')) {
               print("prompt if want to save");
-               _showSaveDialog(ipCtrl.text, portCtrl.text);
-               /*
+              _showSaveDialog(ipCtrl.text, portCtrl.text);
+              await getDevices();
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
@@ -236,17 +283,16 @@ class _SetupPageState extends State<SetupPage> {
                     port: int.parse(portCtrl.text),
                   ),
                 ),
-              );*/
+              );
             } else if (ip != null &&
                 (ipCtrl.text == '' && portCtrl.text == '')) {
-                  /*
+              await getDevices();
               Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
                       builder: (context) =>
-                          EstablishedPage(ip: ip, port: port,)));*/
+                          EstablishedPage(ip: ip, port: port,)));
             }
-            /* now to connect and move to the new screen */
           },
         ),
       ),
@@ -262,5 +308,86 @@ class _SetupPageState extends State<SetupPage> {
         ),
       ),
     ));
+  }
+}
+
+/* Established State page */
+class EstablishedPage extends StatefulWidget {
+  final String ip;
+  final int port;
+
+  EstablishedPage({Key key, @required this.ip, @required this.port})
+      : super(key: key);
+
+  @override
+  _EstablishedPageState createState() => _EstablishedPageState();
+}
+
+/* the state for the established page */
+class _EstablishedPageState extends State<EstablishedPage> {
+
+  /* Initialize by retreiving previously saved values (if applicable) */
+  @override
+  void initState() {
+    super.initState();
+    // may not need this.
+  }
+
+/* For exiting, I think at least */
+  @override
+  void dispose() {
+    //may not need this.
+    super.dispose();
+  }
+
+  Widget _buildList() {
+    print("In _buildList() function");
+    return ListView.builder(
+        padding: EdgeInsets.all(16.0),
+        itemCount: _devs.length,
+        itemBuilder: (context, i) {
+          print("devs: " +
+              _devs[i] +
+              " types: " +
+              _devTypes[i]);
+          return _buildRow(_devs[i], _devTypes[i]);
+        });
+  }
+
+  Widget _buildRow(String dev, String devType) {
+    print("In _buildRow() function");
+    return ListTile(
+        title: Text(
+          dev + ' -- ' + devType,
+          style: TextStyle(fontSize: 20.0),
+        ),
+        onTap: () {
+          _showDev( dev, devType);
+        });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Kiss-Light App'),
+      ),
+      body: _buildList(),
+    );
+  }
+
+  void _showDev(String devName, String devType) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(devName),
+            ),
+            body: Text( devType + ' FUN!' ),
+          );
+        }
+      ),
+    );
   }
 }

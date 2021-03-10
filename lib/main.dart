@@ -1,46 +1,33 @@
-// Copyright 2018 The Flutter team. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
 import 'package:flutter/material.dart';
-import 'package:english_words/english_words.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
 //Socket sock;
-
 /*
 void main() async {
   final socket = await Socket.connect('192.168.3.175', 1155);
   sock = socket;
   print("Connected to server ${socket.remoteAddress.address}:${socket.remotePort}");
-
   //listen to responses from server
   socket.listen(
-
     // Handler
     (Uint8List data) {
       print( "In Data Handler Now" );
       print(new String.fromCharCodes(data));
     },
-
     // handle errors
     onError: (error, StackTrace trace) {
       print(error);
     },
-
     // handle server ending connection
     onDone: () {
       print( "Exiting from Server, goodbye!" );
       socket.destroy();
     },
   );
-
   await sendMessage(socket, 'LIST KL/0.3\n');
-
   runApp(Klapp());
-
   //This is how to exit server
   //await sendMessage(socket, 'Q\n');
 }*/
@@ -239,7 +226,25 @@ class _SetupPageState extends State<SetupPage> {
           onPressed: () {
             if (ip == null || (ipCtrl.text != '' && portCtrl.text != '')) {
               print("prompt if want to save");
-              _showSaveDialog(ipCtrl.text, portCtrl.text);
+               _showSaveDialog(ipCtrl.text, portCtrl.text);
+               /*
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EstablishedPage(
+                    ip: ipCtrl.text,
+                    port: int.parse(portCtrl.text),
+                  ),
+                ),
+              );*/
+            } else if (ip != null &&
+                (ipCtrl.text == '' && portCtrl.text == '')) {
+                  /*
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          EstablishedPage(ip: ip, port: port,)));*/
             }
             /* now to connect and move to the new screen */
           },

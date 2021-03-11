@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 final _devs = <String>[];
 final _devTypes = <String>[];
+final _klversion = 0.3;
 
 /* Main function */
 void main() => runApp(Klapp());
@@ -263,12 +264,7 @@ class _SetupPageState extends State<SetupPage> {
       padding: EdgeInsets.only(bottom: 5),
       child: ButtonTheme(
         height: 56,
-        child: RaisedButton(
-          child: Text('Connect',
-              style: TextStyle(color: Colors.white, fontSize: 20)),
-          color: Colors.black87,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+        child: ElevatedButton(
           onPressed: () async {
             /* now to connect and move to the new screen */
             if (ip == '' || (ipCtrl.text != '' && portCtrl.text != '')) {
@@ -290,10 +286,21 @@ class _SetupPageState extends State<SetupPage> {
               Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                      builder: (context) =>
-                          EstablishedPage(ip: ip, port: port,)));
+                      builder: (context) => EstablishedPage(
+                            ip: ip,
+                            port: port,
+                          )));
             }
           },
+          child: Text('Connect',
+              style: TextStyle(color: Colors.white, fontSize: 32)),
+          style: ElevatedButton.styleFrom(
+            onPrimary: Colors.white,
+            primary: Colors.black87,
+            minimumSize: Size(250, 56),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+          ),
         ),
       ),
     );
@@ -325,7 +332,6 @@ class EstablishedPage extends StatefulWidget {
 
 /* the state for the established page */
 class _EstablishedPageState extends State<EstablishedPage> {
-
   /* Initialize by retreiving previously saved values (if applicable) */
   @override
   void initState() {
@@ -346,10 +352,7 @@ class _EstablishedPageState extends State<EstablishedPage> {
         padding: EdgeInsets.all(16.0),
         itemCount: _devs.length,
         itemBuilder: (context, i) {
-          print("devs: " +
-              _devs[i] +
-              " types: " +
-              _devTypes[i]);
+          print("devs: " + _devs[i] + " types: " + _devTypes[i]);
           return _buildRow(_devs[i], _devTypes[i]);
         });
   }
@@ -362,7 +365,7 @@ class _EstablishedPageState extends State<EstablishedPage> {
           style: TextStyle(fontSize: 20.0),
         ),
         onTap: () {
-          _showDev( dev, devType);
+          _showDev(dev, devType);
         });
   }
 
@@ -377,17 +380,76 @@ class _EstablishedPageState extends State<EstablishedPage> {
   }
 
   void _showDev(String devName, String devType) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) {
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(devName),
-            ),
-            body: Text( devType + ' FUN!' ),
-          );
-        }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DevPage(
+          devName: devName,
+          devType: devType,
+          ip: widget.ip,
+          port: widget.port,
+        ),
       ),
     );
   }
 }
+
+/* Device State Change page */
+class DevPage extends StatefulWidget {
+  final String devName;
+  final String devType;
+  final String ip;
+  final int port;
+
+  DevPage(
+      {Key key,
+      @required this.devName,
+      @required this.devType,
+      @required this.ip,
+      @required this.port})
+      : super(key: key);
+
+  @override
+  _DevPageState createState() => _DevPageState();
+}
+
+/* the state for the setup page */
+class _DevPageState extends State<DevPage> {
+  @override
+  Widget build(BuildContext context) {
+    final toggleOutletButton = ButtonTheme(
+      //height: 60,
+      child: ElevatedButton(
+        onPressed: () async {
+          String msg = 'TOGGLE ' +
+              widget.devName +
+              ' KL/' +
+              _klversion.toString() +
+              '\n';
+
+          /* send request */
+          _sendRequest(widget.ip, widget.port, msg);
+        },
+        child:
+            Text('toggle', style: TextStyle(color: Colors.white, fontSize: 32)),
+        style: ElevatedButton.styleFrom(
+          onPrimary: Colors.white,
+          primary: Colors.purple,
+          minimumSize: Size(250, 250),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        ),
+      ),
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.devName),
+      ),
+      body: Center(
+        child: toggleOutletButton,
+      ),
+    );
+  }
+}
+
